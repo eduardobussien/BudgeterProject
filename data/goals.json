@@ -1,17 +1,1 @@
-[
-  {
-    "name": "Trip to Texas",
-    "current_amount": 250.0,
-    "target_amount": 500.0
-  },
-  {
-    "name": "Gaming Laptop",
-    "current_amount": 1000.0,
-    "target_amount": 1450.0
-  },
-  {
-    "name": "Trip to Japan",
-    "current_amount": 543.0,
-    "target_amount": 3000.0
-  }
-]
+[]

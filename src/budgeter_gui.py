@@ -8,13 +8,14 @@ from PyQt6.QtWidgets import (
     QToolButton, QMenu, QSizePolicy, QSpacerItem,
     QProgressBar, QDialog, QDialogButtonBox, QLineEdit,
     QDoubleSpinBox, QComboBox, QPushButton, QInputDialog,
-    QTableWidget, QTableWidgetItem, QAbstractItemView, QHeaderView  
+    QTableWidget, QTableWidgetItem, QAbstractItemView, QHeaderView,  
+    QMessageBox,
 )
 
 from datetime import datetime, timedelta 
 
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QPixmap, QPainter, QPen, QFont
+from PyQt6.QtCore import Qt, pyqtSignal, QRect, QUrl, QSize
+from PyQt6.QtGui import QPixmap, QPainter, QPen, QFont, QColor, QDesktopServices, QIcon
 
 from budgeter_core import Goal
 
@@ -102,7 +103,7 @@ GOALS_FILE = BASE_DIR / "data" / "goals.json"
 BILLS_FILE = BASE_DIR / "data" / "bills.json"
 BALANCE_FILE = BASE_DIR / "data" / "balance.json"
 TRANSACTIONS_FILE = BASE_DIR / "data" / "transactions.json" 
-
+GITHUB_LOGO_FILE = BASE_DIR / "data" / "img" / "githublogo.png"
 
 def load_goals() -> list[Goal]:
     if not GOALS_FILE.exists():
@@ -392,6 +393,177 @@ class BillRowWidget(QWidget):
             self.clicked.emit(self.bill)
         super().mousePressEvent(event)
 
+class SpendingTrendsWidget(QWidget):
+    """
+    Simple custom bar chart for weekly spending by category.
+    Draws directly with QPainter on a transparent background.
+    """
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.transactions: list[dict] = []
+
+        self.setMinimumHeight(200)
+
+        # Pre-chosen colors for bars
+        self.bar_colors = [
+            QColor("#ff6b81"),
+            QColor("#ffd447"),
+            QColor("#4da6ff"),
+            QColor("#9b59b6"),
+            QColor("#2ecc71"),
+        ]
+
+    def set_transactions(self, transactions: list[dict]):
+        self.transactions = transactions
+        self.update()
+
+class SpendingTrendsWidget(QWidget):
+    """
+    Simple custom bar chart for weekly spending by category.
+    Draws directly with QPainter on a transparent background.
+    """
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.transactions: list[dict] = []
+
+        self.setMinimumHeight(200)
+
+        # Pre-chosen colors for bars
+        self.bar_colors = [
+            QColor("#ff6b81"),
+            QColor("#ffd447"),
+            QColor("#4da6ff"),
+            QColor("#9b59b6"),
+            QColor("#2ecc71"),
+        ]
+
+    def set_transactions(self, transactions: list[dict]):
+        self.transactions = transactions
+        self.update()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        rect = self.rect()
+        left_margin = 45
+        right_margin = 20
+        top_margin = 15
+        bottom_margin = 40
+
+        chart_left = left_margin
+        chart_right = rect.width() - right_margin
+        chart_top = top_margin
+        chart_bottom = rect.height() - bottom_margin
+
+        chart_width = chart_right - chart_left
+        chart_height = chart_bottom - chart_top
+
+        # Filter expenses in the last 7 days
+        one_week_ago = datetime.now() - timedelta(days=7)
+        categories: dict[str, float] = {}
+
+        for tx in self.transactions:
+            # ONLY expenses count for spending trend
+            if tx.get("kind") != "expense":
+                continue
+
+            ts_str = tx.get("timestamp")
+            try:
+                ts = datetime.fromisoformat(ts_str)
+            except Exception:
+                ts = datetime.now()
+
+            if ts < one_week_ago:
+                continue
+
+            cat = tx.get("category", "Other")
+            categories[cat] = categories.get(cat, 0.0) + float(tx.get("amount", 0.0))
+
+        if not categories:
+            painter.setPen(QColor("#c8ffe6"))
+            painter.setFont(QFont("Arial", 11))
+            painter.drawText(
+                rect,
+                int(Qt.AlignmentFlag.AlignCenter),
+                "No expense data for this week yet.",
+            )
+            painter.end()
+            return
+
+        # Axes
+        axis_pen = QPen(QColor("#c8ffe6"))
+        axis_pen.setWidth(1)
+        painter.setPen(axis_pen)
+        painter.drawLine(chart_left, chart_bottom, chart_right, chart_bottom)  # X axis
+        painter.drawLine(chart_left, chart_top, chart_left, chart_bottom)      # Y axis
+
+        # Compute bars
+        cats = list(categories.keys())
+        values = [categories[c] for c in cats]
+
+        # Fixed scale: 0–100 with ticks every 20
+        max_tick = 100
+        tick_step = 20
+
+        # Y-axis ticks + labels
+        painter.setFont(QFont("Arial", 9))
+        for tick in range(0, max_tick + tick_step, tick_step):
+            ratio = tick / max_tick
+            y = chart_bottom - int(ratio * (chart_height - 10))
+
+            # tick line
+            painter.setPen(QPen(QColor("#235e4a")))
+            painter.drawLine(chart_left - 4, y, chart_left, y)
+
+            # label
+            painter.setPen(QColor("#c8ffe6"))
+            painter.drawText(
+                chart_left - 38, y - 6, 30, 15,
+                int(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter),
+                str(tick),
+            )
+
+        # Bar geometry
+        bar_count = len(cats)
+        bar_space = chart_width / max(bar_count, 1)
+        bar_width = bar_space * 0.5
+
+        # Draw bars
+        for i, cat in enumerate(cats):
+            val = values[i]
+            capped = min(val, max_tick)        # anything over 100 just caps
+            ratio = capped / max_tick
+            bar_h = ratio * (chart_height - 10)
+
+            cx = chart_left + bar_space * i + bar_space / 2
+            x1 = int(cx - bar_width / 2)
+            y1 = int(chart_bottom - bar_h)
+            w = int(bar_width)
+            h = int(bar_h)
+
+            color = self.bar_colors[i % len(self.bar_colors)]
+            painter.setBrush(color)
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.drawRoundedRect(x1, y1, w, h, 4, 4)
+
+            # Category label under bar
+            painter.setPen(QColor("#c8ffe6"))
+            label_rect = QRect(
+                int(cx - bar_space / 2),
+                chart_bottom + 2,
+                int(bar_space),
+                20,
+            )
+            painter.drawText(
+                label_rect,
+                int(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop),
+                cat,
+            )
+
+        painter.end()
+
+
 
 class GoalEditDialog(QDialog):
     def __init__(self, goal: Goal | None, parent=None):
@@ -575,10 +747,11 @@ class TransactionDialog(QDialog):
 
     def get_transaction(self) -> dict:
         return {
-            "kind": self.kind,
+            "kind": self.kind,  
             "amount": float(self.amount_spin.value()),
             "category": self.category_combo.currentText(),
             "note": self.note_edit.text().strip(),
+            "timestamp": datetime.now().isoformat(),
         }
 
 
@@ -587,7 +760,7 @@ class BudgeterWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("Budgeter")
+        self.setWindowTitle("BUDGETER")
         self.resize(1200, 700)
 
         # Global background + label defaults
@@ -696,39 +869,40 @@ class BudgeterWindow(QMainWindow):
 
         # MENU BUTTON (centered)
         menu_button = QToolButton()
-        menu_button.setText("Menu")
-        menu_button.setStyleSheet("""
-            QToolButton {
-                color: #ffffff;
-                padding: 8px 16px;
-                border-radius: 8px;
-                background-color: #0b3a28;
-                font-weight: 600;
-                font-size: 13px;
-            }
-            QToolButton::menu-indicator {
+        menu_button.setText("MENU")
+        menu_button.setStyleSheet(f"""
+            QToolButton {{
+                color: #e9fff3;
+                padding: 8px 26px;
+                border-radius: 18px;
+                background-color: #063525;
+                border: 1px solid {ACCENT};
+                font-weight: 700;
+                font-size: 12px;
+                letter-spacing: 1px;
+            }}
+            QToolButton::menu-indicator {{
                 image: none;
-            }
+            }}
+            QToolButton::hover {{
+                background-color: #0a4530;
+            }}
         """)
+
 
         menu = QMenu(menu_button)
         menu.addAction("Profile (WIP)", self._dummy_action)
         menu.addAction("Appearance (WIP)", self._dummy_action)
         menu.addSeparator()
-        menu.addAction("About (WIP)", self._dummy_action)
+        menu.addAction("About", self._show_about)
         menu.addSeparator()
-        menu.addAction("Settings (WIP)", self._dummy_action)
+        menu.addAction("Settings", self._open_settings_dialog)
+
         menu_button.setMenu(menu)
         menu_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
 
         tr_layout.addStretch()
         tr_layout.addWidget(menu_button, alignment=Qt.AlignmentFlag.AlignHCenter)
-        tr_layout.addStretch()
-
-        # --- work in progress label ---
-        wip_label = QLabel("(Work In Progress)")
-        wip_label.setStyleSheet("font-size: 11px; color: #a3ffcf;")
-        tr_layout.addWidget(wip_label, alignment=Qt.AlignmentFlag.AlignHCenter)
         tr_layout.addStretch()
 
 
@@ -837,12 +1011,8 @@ class BudgeterWindow(QMainWindow):
         right_col.addWidget(self.balance_label)
         right_col.addStretch()
 
-        content_layout.addLayout(right_col, stretch=4)
-
         mg_layout.addLayout(content_layout)
         content_layout.addLayout(right_col, stretch=4)
-
-        mg_layout.addLayout(content_layout)
 
         # ===== BOTTOM BUTTON ROW =====
         buttons_row = QHBoxLayout()
@@ -890,7 +1060,7 @@ class BudgeterWindow(QMainWindow):
 
         buttons_row.addStretch()
         buttons_row.addWidget(self.add_income_btn)
-        buttons_row.addSpacing(40)  # space between the two buttons
+        buttons_row.addSpacing(40) 
         buttons_row.addWidget(self.add_expense_btn)
         buttons_row.addStretch()
 
@@ -923,7 +1093,7 @@ class BudgeterWindow(QMainWindow):
         # Header row: title + "+" button
         header_row = QHBoxLayout()
         header_label = QLabel("Goals Summary")
-        header_label.setStyleSheet("font-size: 14px; font-weight: 700;")
+        header_label.setStyleSheet("font-size: 14px; font-weight: 700; margin-left: 10px;")
         header_row.addWidget(header_label)
         header_row.addStretch()
 
@@ -957,8 +1127,106 @@ class BudgeterWindow(QMainWindow):
             self.set_main_goal(self.goals[0])
 
 
-        # (2,3) – also in tall middle row
-        add_placeholder(1, 2, "(2,3)\nSpending Trend\n(placeholder)")
+        # (2,3) – Spending Trend 
+        spending_container = QWidget()
+        grid.addWidget(spending_container, 1, 2)
+
+        spending_layout = QVBoxLayout(spending_container)
+        spending_layout.setContentsMargins(4, 8, 4, 8)
+        spending_layout.setSpacing(6)
+
+        spending_title = QLabel("Spending Trend (This Week)")
+        spending_title.setStyleSheet("font-size: 14px; font-weight: 700; margin-left: 25px;")
+        spending_layout.addWidget(spending_title)
+
+        self.spending_trends = SpendingTrendsWidget()
+        spending_layout.addWidget(self.spending_trends)
+
+
+        # (3,3) – bottom-right: Insights & Tips 
+        insights_container = QWidget()
+        grid.addWidget(insights_container, 2, 2)
+
+        insights_layout = QVBoxLayout(insights_container)
+        insights_layout.setContentsMargins(0, 0, 0, 0)
+        insights_layout.setSpacing(0)
+
+        # outer stretch (top)
+        insights_layout.addStretch()
+
+        # INNER BLOCK (all the labels)
+        inner = QVBoxLayout()
+        inner.setContentsMargins(0, 0, 0, 0)
+        inner.setSpacing(20)
+
+        insights_title = QLabel("Insights & Tips")
+        insights_title.setStyleSheet("font-size: 14px; font-weight: 700;")
+        inner.addWidget(insights_title, alignment=Qt.AlignmentFlag.AlignHCenter)
+
+        self.insight_week_spent = QLabel("")
+        self.insight_week_spent.setStyleSheet("font-size: 12px; color: #c8ffe6;")
+        inner.addWidget(self.insight_week_spent, alignment=Qt.AlignmentFlag.AlignHCenter)
+
+        self.insight_week_net = QLabel("")
+        self.insight_week_net.setStyleSheet("font-size: 12px; color: #c8ffe6;")
+        inner.addWidget(self.insight_week_net, alignment=Qt.AlignmentFlag.AlignHCenter)
+
+        self.insight_bills_total = QLabel("")
+        self.insight_bills_total.setStyleSheet("font-size: 12px; color: #c8ffe6;")
+        inner.addWidget(self.insight_bills_total, alignment=Qt.AlignmentFlag.AlignHCenter)
+
+        # --- GitHub badge (logo + username) ---
+        inner.addSpacing(12)
+
+        self.github_button = QPushButton("eduardobussien")
+        self.github_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.github_button.setStyleSheet(f"""
+            QPushButton {{
+                background-color: rgba(40, 224, 122, 0.07);
+                color: #b4ffd8;
+                border: 1px solid {ACCENT};
+                border-radius: 10px;
+                padding: 4px 10px;
+                font-size: 10px;
+                font-weight: 600;
+            }}
+            QPushButton:hover {{
+                background-color: rgba(40, 224, 122, 0.20);
+            }}
+        """)
+
+        # Add GitHub logo as icon if the file exists
+        try:
+            if GITHUB_LOGO_FILE.exists():
+                pix = QPixmap(str(GITHUB_LOGO_FILE))
+                if not pix.isNull():
+                    icon = QIcon(pix.scaled(16, 16, Qt.AspectRatioMode.KeepAspectRatio,
+                                            Qt.TransformationMode.SmoothTransformation))
+                    self.github_button.setIcon(icon)
+                    self.github_button.setIconSize(QSize(16, 16))
+        except Exception as e:
+            print("Failed to load GitHub logo:", e)
+
+        self.github_button.clicked.connect(self._open_github)
+
+        inner.addWidget(
+            self.github_button,
+            alignment=Qt.AlignmentFlag.AlignHCenter
+        )
+
+
+        # wrapper for inner block
+        wrapper = QWidget()
+        wrapper.setLayout(inner)
+
+        # center horizontally
+        insights_layout.addWidget(
+            wrapper,
+            alignment=Qt.AlignmentFlag.AlignHCenter
+        )
+
+        # outer stretch (bottom)
+        insights_layout.addStretch()
 
 
         self.bills: list[dict] = load_bills()
@@ -974,7 +1242,7 @@ class BudgeterWindow(QMainWindow):
         # Header row: title + "Add / edit" button
         header_row = QHBoxLayout()
         bills_header = QLabel("Upcoming Bills")
-        bills_header.setStyleSheet("font-size: 14px; font-weight: 700;")
+        bills_header.setStyleSheet("font-size: 14px; font-weight: 700; margin-left: 5px; margin-top: 2px;")
         header_row.addWidget(bills_header)
         header_row.addStretch()
 
@@ -1004,7 +1272,7 @@ class BudgeterWindow(QMainWindow):
         self._rebuild_bill_rows()
 
 
-        # (3,2) – bottom row center: Transactions Summary
+        # (3,2) . bottom row center: Transactions Summary
         tx_card = CardWidget()
         grid.addWidget(tx_card, 2, 1)
 
@@ -1059,20 +1327,119 @@ class BudgeterWindow(QMainWindow):
 
         # fill with any loaded transactions
         self._refresh_transactions_table()
-
-
-        # (3,3) – bottom-right
-        add_placeholder(2, 2, "(3,3)\nExtra / Tips\n(placeholder)")
-
-        # NOTE for later:
-        # When we add a background image, we can either:
-        #  - draw it in a custom QWidget and place cards with transparent
-        #    backgrounds, or
-        #  - set it via a stylesheet for central widget.
-        # For now cards stay opaque to keep it simple.
+        self._update_spending_trends() 
+        self._update_insights()
 
     def _dummy_action(self):
         print("Menu item clicked")
+
+    def _show_about(self):
+        """Show an 'About Budgeter' dialog."""
+        QMessageBox.information(
+            self,
+            "About Budgeter",
+            (
+                "Budgeter\n\n"
+                "A simple personal finance dashboard built with Python and PyQt6.\n"
+                "Track goals, upcoming bills, income and expenses, and weekly spending trends.\n\n"
+                "Created by Eduardo Bussien\n"
+                "GitHub: https://github.com/eduardobussien"
+            )
+        )
+
+    def _open_settings_dialog(self):
+        """Open a small settings dialog with a 'Reset all data' option."""
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Settings")
+        layout = QVBoxLayout(dlg)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(12)
+
+        info = QLabel(
+            "Settings\n\n"
+            "You can reset all data for this Budgeter profile.\n"
+            "This will clear:\n"
+            " • Goals\n"
+            " • Upcoming bills\n"
+            " • Balance\n"
+            " • All income/expense transactions\n"
+            " • Spending trends & insights\n"
+        )
+        info.setWordWrap(True)
+        layout.addWidget(info)
+
+        reset_btn = QPushButton("Reset all data")
+        reset_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #5a0b0b;
+                color: #ffecec;
+                border-radius: 6px;
+                font-weight: 700;
+                padding: 6px 12px;
+            }
+            QPushButton:hover {
+                background-color: #8c1010;
+            }
+        """)
+        reset_btn.clicked.connect(self._confirm_and_reset)
+        layout.addWidget(reset_btn, alignment=Qt.AlignmentFlag.AlignLeft)
+
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(dlg.accept)
+        layout.addWidget(close_btn, alignment=Qt.AlignmentFlag.AlignRight)
+
+        dlg.exec()
+
+    def _confirm_and_reset(self):
+        """Ask the user to confirm, then reset all data if they accept."""
+        reply = QMessageBox.warning(
+            self,
+            "Reset all data",
+            "Are you sure you want to reset ALL data?\n\n"
+            "This will clear goals, bills, balance, transactions and trends.\n"
+            "This cannot be undone.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            self._reset_all_data()
+
+    def _reset_all_data(self):
+        """Clear everything in memory and on disk, and refresh the UI."""
+        # Clear in-memory data
+        self.goals = []
+        self.bills = []
+        self.transactions = []
+        self.balance = 0.0
+        self.current_main_goal = None
+
+        # Save empty state to disk
+        save_goals(self.goals)
+        save_bills(self.bills)
+        save_transactions(self.transactions)
+        save_balance(self.balance)
+
+        # Reset main goal UI
+        self.main_goal_name.setText("(no main goal)")
+        self.main_goal_progress.setValue(0)
+        self.main_goal_amount_label.setText("Saved: $0.00 of $0.00")
+        self.main_goal_progress_label.setText("You're 0% of the way there.")
+
+        # Rebuild other UI sections
+        self._rebuild_goal_rows()
+        self._rebuild_bill_rows()
+        self._refresh_transactions_table()
+        self._update_balance_label()
+        self._update_spending_trends()
+        self._update_insights()
+
+        QMessageBox.information(
+            self,
+            "Reset complete",
+            "All Budgeter data has been reset."
+        )
+
+
 
     def set_main_goal(self, goal):
         """Update the Main Goal card with the given Goal object."""
@@ -1110,6 +1477,8 @@ class BudgeterWindow(QMainWindow):
                 if w is not None:
                     w.deleteLater()
         self.bill_rows.clear()
+        self._update_insights()
+
 
         if not self.bills:
             # Centered clickable 'add/edit' text when there are no bills
@@ -1294,6 +1663,8 @@ class BudgeterWindow(QMainWindow):
             self.transactions.append(tx)
             self.balance += tx["amount"]
             self._update_balance_label()
+            self._update_spending_trends() 
+            self._update_insights()
             save_transactions(self.transactions)       
             self._refresh_transactions_table()           
 
@@ -1307,6 +1678,8 @@ class BudgeterWindow(QMainWindow):
             self.transactions.append(tx)
             self.balance -= tx["amount"]
             self._update_balance_label()
+            self._update_spending_trends() 
+            self._update_insights()
             save_transactions(self.transactions)      
             self._refresh_transactions_table()        
 
@@ -1317,6 +1690,68 @@ class BudgeterWindow(QMainWindow):
         save_balance(self.balance)
         save_transactions(self.transactions)
         super().closeEvent(event)
+
+    def _update_spending_trends(self):
+        if hasattr(self, "spending_trends"):
+            self.spending_trends.set_transactions(self.transactions)
+
+    def _open_github(self):
+        """Open my GitHub profile in the default web browser."""
+        QDesktopServices.openUrl(QUrl("https://github.com/eduardobussien"))
+    
+
+    def _update_insights(self):
+        """Update the Insights & Tips card based on transactions and bills."""
+        # --- Weekly spending & top category ---
+        one_week_ago = datetime.now() - timedelta(days=7)
+
+        total_expense = 0.0
+        total_income = 0.0
+        by_category: dict[str, float] = {}
+
+        for tx in self.transactions:
+            ts_str = tx.get("timestamp")
+            try:
+                ts = datetime.fromisoformat(ts_str)
+            except Exception:
+                ts = datetime.now()
+
+            if ts < one_week_ago:
+                continue
+
+            kind = tx.get("kind")
+            amount = float(tx.get("amount", 0.0))
+            category = tx.get("category", "Other")
+
+            if kind == "expense":
+                total_expense += amount
+                by_category[category] = by_category.get(category, 0.0) + amount
+            elif kind == "income":
+                total_income += amount
+
+        # top spending category
+        if by_category:
+            top_cat = max(by_category.items(), key=lambda kv: kv[1])[0]
+            self.insight_week_spent.setText(
+                f"This week you spent ${total_expense:,.2f} (top: {top_cat})."
+            )
+        else:
+            self.insight_week_spent.setText(
+                "No expense data for this week yet."
+            )
+
+        # net change
+        net = total_income - total_expense
+        sign = "+" if net >= 0 else "-"
+        self.insight_week_net.setText(
+            f"Net change this week: {sign}${abs(net):,.2f}."
+        )
+
+        # total of all bills
+        bills_total = sum(float(b.get("amount", 0.0)) for b in self.bills)
+        self.insight_bills_total.setText(
+            f"Total of your bills: ${bills_total:,.2f}."
+        )
 
 
 def main():
