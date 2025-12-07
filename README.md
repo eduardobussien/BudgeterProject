@@ -1,8 +1,164 @@
-Budgeter is a desktop personal finance application designed to provide users with a clean and modern interface for tracking their money, goals, bills, transactions, and overall financial progress. The project is implemented in Python using the PyQt6 framework and follows a modular structure that separates the graphical interface, core logic, data models, and tests. This application was developed as part of a Software Engineering course, with a focus on applying project planning, design documentation, version control, and clean software architecture.
-The main interface presents a 3×3 grid-based dashboard inspired by contemporary budgeting and productivity tools. The top-left corner contains the application title and logo, while the top-right area contains a menu section for future settings and account-related features. The center of the layout is dedicated to the user’s primary financial goal, displayed with a large circular progress indicator, percentage calculations, and descriptive text. Users may select any goal as their “main goal,” and all goal-related information updates dynamically.
-The application includes a fully functioning goal management system. Users can create new goals, edit existing ones, change their main goal, and delete goals when they are no longer needed. Each goal displays its current progress using a visual progress bar and is persisted to disk in a structured JSON format so that information is saved between sessions. Goals are displayed in the Goals Summary panel, and selecting a goal updates the central Main Goal card.
-Another component of the dashboard is the Upcoming Bills panel. This section allows users to add upcoming bills, specify an amount, edit existing entries, or delete them. Bills are displayed in a simple list format with colored indicators. These entries are also saved in JSON format to ensure persistence across application restarts.
-Budgeter also includes an overall balance system located within the Main Goal card. Users may directly edit their balance or use the “Add Income” and “Add Expense” buttons to input financial transactions. Each transaction includes an amount, category (such as Personal, Food, School, Bills, etc.), and an optional note. All transactions update the user’s total balance automatically. The application stores these transactions in memory for future features such as the full transaction summary panel and spending trend visualization.
-The project is organized in a clear directory structure. The src directory contains all source code files, including budgeter_gui.py for the graphical user interface, budgeter_core.py for financial models such as the Goal class, and main.py, which serves as the program entry point. The data directory contains persistent user data such as goals, bills, and application images. A tests folder is included with unit tests to ensure correctness of the core logic. Supporting documentation such as the README and design document is stored in the root folder.
-To run the application, users must first install Python 3 and install dependencies using pip install -r requirements.txt. The program is launched by executing python src/main.py from the project root. The application uses PyQt6 for the graphical interface, and no additional software is required. Developers may extend the project by modifying the UI, adding new financial tools, or integrating charts and analytics using the existing structure.
-Budgeter demonstrates the integration of GUI programming, persistent storage, data modeling, custom widgets, dialog windows, and good software engineering practices. It is intended as a growing project, with several planned features such as a complete Transaction Summary panel and a Spending Trends visualization. The design and modular architecture allow these additions to be implemented cleanly and efficiently as the project evolves.
+# Budgeter
+A modern desktop budgeting app built with Python & PyQt6.
+
+Budgeter is a desktop personal finance application designed to help users track goals, bills, expenses, income, and overall financial progress through a clean and intuitive interface. The project was developed as part of a Software Engineering course, with emphasis on modular design, project planning, documentation, and clean architecture.
+
+## Features
+
+### Dashboard
+A responsive 3×3 grid layout inspired by modern budgeting tools:
+- **Top-left:** App title + logo  
+- **Top-right:** Menu (placeholders for future profile/settings)
+- **Center:** Main Goal with circular progress bar
+- **Bottom:** Goals Summary, Upcoming Bills, Transaction Summary, and Insights
+
+### Goals Management
+- Create, edit, or delete goals  
+- Choose any goal as the **Main Goal**  
+- Dynamic progress bars and percentage calculations  
+- Goals are stored in JSON and restored on launch  
+
+### Bills Tracking
+- Add or edit upcoming bills  
+- Colored visual category markers  
+- Bills stored persistently in JSON  
+
+### Balance & Transactions
+- Edit overall balance directly  
+- Add Income or Add Expense  
+- Each transaction includes:  
+  - Amount  
+  - Category (Personal, Food, Bills, School, etc.)  
+  - Optional note  
+- Balance updates live  
+- Transactions saved in JSON  
+- Automatic pruning: entries older than 7 days are removed  
+- Displayed in a scrollable **Transactions Summary** table  
+
+---
+## Screenshots
+#### Dashboard Preview  
+![Dashboard](docs/screenshots/dashboard.png)
+
+#### Goals Summary  
+![Goals](docs/screenshots/goals.png)
+
+#### Transactions Table  
+![Transactions](docs/screenshots/transactions.png)
+
+
+## Installation
+
+1. Clone the repository:
+
+git clone https://github.com/eduardobussien/BudgeterProject.git
+
+
+2. Move into the folder:
+
+cd BudgeterProject
+
+
+3. Create a virtual environment:
+
+python -m venv .venv
+
+
+4. Activate the environment:
+
+..venv\Scripts\activate # Windows
+or:
+
+source .venv/bin/activate # macOS/Linux
+
+
+5. Install required dependencies:
+
+pip install -r requirements.txt
+
+
+---
+
+## Running the Application
+
+Once everything is installed, run:
+
+python main.py
+
+
+The program automatically creates JSON data files (`goals.json`, `bills.json`, `balance.json`, `transactions.json`).
+
+---
+
+## Running Tests
+
+To run unit tests:
+
+python -m unittest
+
+
+OR:
+
+pytest
+
+
+---
+
+## Folder Organization
+
+BDGTR
+│
+├── .venv/ # ignored
+├── data/
+│ ├── bkgd/
+│ ├── img/
+│ ├── balance.json
+│ ├── bills.json
+│ ├── goals.json
+│ └── transactions.json
+│
+├── docs/
+│ └── screenshots/
+│
+├── src/
+│ ├── budgeter_core.py
+│ ├── budgeter_gui.py
+│ └── init.py
+│
+├── tests/
+│ └── test_budgeter_core.py
+│
+├── .gitignore
+├── DESIGN.md
+├── main.py
+├── README.md
+└── requirements.txt
+
+
+---
+
+## Technologies Used
+
+- Python 3  
+- PyQt6 (GUI framework)  
+- JSON for persistent storage  
+- unittest (testing)  
+- Pathlib (filesystem paths)  
+
+---
+
+## Future Improvements
+
+- Full Spending Trend graphs  
+- Category-based visual reports  
+- Export transactions to CSV  
+- Multi-user profiles  
+- Dark/Light themes  
+- Full settings menu  
+
+---
+
+## Author
+
+Eduardo Bussien  
+https://github.com/eduardobussien
