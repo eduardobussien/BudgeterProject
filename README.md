@@ -44,7 +44,7 @@ A responsive 3×3 grid layout inspired by modern budgeting tools:
 ![Goals](docs/screenshots/goals.png)
 
 #### Transactions Table  
-![Transactions](docs/screenshots/transactions.png)
+![Transactions](docs/screenshots/add_expense.png)
 
 
 ## Installation
@@ -104,38 +104,6 @@ pytest
 
 ---
 
-## Folder Organization
-
-BDGTR
-│
-├── .venv/ # ignored
-├── data/
-│ ├── bkgd/
-│ ├── img/
-│ ├── balance.json
-│ ├── bills.json
-│ ├── goals.json
-│ └── transactions.json
-│
-├── docs/
-│ └── screenshots/
-│
-├── src/
-│ ├── budgeter_core.py
-│ ├── budgeter_gui.py
-│ └── init.py
-│
-├── tests/
-│ └── test_budgeter_core.py
-│
-├── .gitignore
-├── DESIGN.md
-├── main.py
-├── README.md
-└── requirements.txt
-
-
----
 
 ## Technologies Used
 
@@ -147,7 +115,7 @@ BDGTR
 
 ---
 
-## Future Improvements
+## Future Improvements Ideas
 
 - Full Spending Trend graphs  
 - Category-based visual reports  
