@@ -1,0 +1,56 @@
+[project]
+name = "budgeter"
+version = "1.0.0"
+description = "A modern desktop budgeting app built with Python & PyQt6."
+authors = [{ name = "Eduardo Bussien" }]
+license = { text = "MIT" }
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "PyQt6>=6.7",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+]
+build = [
+    "pyinstaller>=6.7",
+]
+
+[project.urls]
+Homepage = "https://github.com/eduardobussien/BudgeterProject"
+Issues = "https://github.com/eduardobussien/BudgeterProject/issues"
+
+[project.scripts]
+budgeter = "src.main_window:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = [".venv", "build", "dist", "data"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "UP",   # pyupgrade
+    "SIM",  # flake8-simplify
+]
+ignore = [
+    "E501",   # line too long — formatter handles it
+    "B008",   # function calls in default arg (Qt patterns)
+    "SIM117", # nested with statements (sqlite/file handling)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B011"]    # asserts in tests are fine

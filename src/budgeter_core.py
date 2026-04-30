@@ -1,9 +1,9 @@
 # src/budgeter_core.py
 
 from __future__ import annotations
+
 from dataclasses import dataclass, field
 from datetime import date, timedelta
-from typing import List, Optional
 
 
 @dataclass
@@ -38,8 +38,8 @@ class Goal:
 @dataclass
 class Account:
     name: str
-    goal: Optional[Goal] = None
-    transactions: List[Transaction] = field(default_factory=list)
+    goal: Goal | None = None
+    transactions: list[Transaction] = field(default_factory=list)
 
     def add_transaction(self, txn: Transaction) -> None:
         self.transactions.append(txn)
@@ -53,7 +53,7 @@ class Account:
     def balance(self) -> float:
         return sum(t.signed_amount for t in self.transactions)
 
-    def recent_transactions(self, n: int = 10) -> List[Transaction]:
+    def recent_transactions(self, n: int = 10) -> list[Transaction]:
         return self.transactions[-n:]
 
     def estimate_eta_weeks(self, lookback_days: int = 56) -> str:

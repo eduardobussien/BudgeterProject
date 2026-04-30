@@ -11,6 +11,13 @@ env/
 .vscode/
 .idea/
 
+# AI assistant / Claude Code config (do not push)
+.claude/
+.claude.json
+CLAUDE.md
+.cursor/
+.aider*
+
 # OS junk
 .DS_Store
 Thumbs.db
@@ -26,3 +33,5 @@ data/balance.json
 data/bills.json
 data/goals.json
 data/transactions.json
+data/budgeter.db
+data/*.migrated

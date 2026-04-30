@@ -1,7 +1,4 @@
-# main.py. Launcher for the Budgeter GUI
-# Done by Eduardo Bussien
-
-from src.budgeter_gui import main as run_app
+from src.main_window import main
 
 if __name__ == "__main__":
-    run_app()
+    main()

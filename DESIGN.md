@@ -20,36 +20,40 @@ Budgeter follows a **modular, object-oriented architecture** divided into the fo
 - Contains simple business logic such as progress calculation.
 - Decoupled from the GUI to support unit testing and future extensions.
 
-### **2.2 GUI Layer (`budgeter_gui.py`)**
-- Implements all windows, dialogs, and custom widgets using PyQt6.
-- Handles user input and updates the display in response to state changes.
-- Contains:
-  - `BudgeterWindow` (main window)
-  - Dialogs (GoalEditDialog, BillEditDialog, TransactionDialog)
-  - Custom widgets (GoalRowWidget, BillRowWidget, CircularProgressBar)
-  - Layout structure for the 3×3 dashboard
+### **2.2 GUI Layer**
+The GUI is intentionally split into focused modules so the main window stays small:
+
+- **`main_window.py`** — `BudgeterWindow` and the `main()` entry point. Composes the dashboard from sub-builders (`_build_logo_title`, `_build_main_goal_card`, etc.) and owns app state (goals, bills, balance, transactions).
+- **`widgets.py`** — reusable visual components: `CardWidget`, `CircularProgressBar`, `GoalRowWidget`, `BillRowWidget`, `SpendingTrendsWidget`.
+- **`dialogs.py`** — modal edit dialogs: `GoalEditDialog`, `BillEditDialog`, `TransactionDialog`.
+- **`theme.py`** — color palette constants (`BG_MAIN`, `BG_CARD`, `FG_TEXT`, `ACCENT`).
+- **`budgeter_gui.py`** — kept as a thin compatibility shim that re-exports `BudgeterWindow` and `main`.
 
 ### **2.3 Application Entry Point (`main.py`)**
 - Initializes the PyQt application
 - Loads the main window and begins the event loop
 
-### **2.4 Persistent Storage**
-Budgeter stores data in JSON files:
-- goals.json  
-- bills.json  
-- balance.json  
-- transactions.json  
+### **2.4 Persistent Storage (`storage.py`)**
+The storage layer is isolated in `src/storage.py` and backed by **SQLite** (stdlib `sqlite3` — no external DB dependency). One database file holds everything:
 
-When running as an EXE, these files are stored in:
+- `data/budgeter.db` (dev mode) or `%APPDATA%/BudgeterProject/budgeter.db` (packaged)
 
-%APPDATA%/BudgeterProject
+Tables:
+- `goals(id, name, current_amount, target_amount, position)`
+- `bills(id, title, amount, position)`
+- `transactions(id, kind, amount, category, note, timestamp)` — `kind` constrained to `'income' | 'expense'`
+- `app_state(key, value)` — singleton key/value store (currently holds the `balance`)
 
-
-The entire storage layer is isolated behind helper functions:
+Public helpers (stable across the JSON → SQLite migration):
 - `load_goals()`, `save_goals()`
 - `load_bills()`, `save_bills()`
 - `load_balance()`, `save_balance()`
-- transaction load/save handlers
+- `load_transactions()`, `save_transactions()`, `prune_old_transactions()`
+- `export_transactions_csv(path, transactions)`
+
+**One-time JSON migration:** if the new DB file does not exist but legacy JSON files (`goals.json` / `bills.json` / `balance.json` / `transactions.json`) sit next to it, they are imported on first connect and renamed `*.json.migrated` so they aren't re-imported.
+
+Errors during load/save are reported via Python's `logging` module under the `"budgeter"` logger rather than raw `print()`, and corrupt or empty database files degrade gracefully (load returns `[]` / `0.0` instead of raising).
 
 ---
 

@@ -1,0 +1,4 @@
+BG_MAIN = "#021710"
+BG_CARD = "#05291b"
+FG_TEXT = "#e9fff3"
+ACCENT = "#28e07a"
